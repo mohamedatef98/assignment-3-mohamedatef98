@@ -1,4 +1,9 @@
 #include "systemcalls.h"
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 /**
  * @param cmd the command to execute with system()
@@ -9,7 +14,6 @@
 */
 bool do_system(const char *cmd)
 {
-
 /*
  * TODO  add your code here
  *  Call the system() function with the command set in the cmd
@@ -17,7 +21,7 @@ bool do_system(const char *cmd)
  *   or false() if it returned a failure
 */
 
-    return true;
+    return system(cmd) == 0u;
 }
 
 /**
@@ -36,6 +40,7 @@ bool do_system(const char *cmd)
 
 bool do_exec(int count, ...)
 {
+    int ret = -1;
     va_list args;
     va_start(args, count);
     char * command[count+1];
@@ -58,10 +63,49 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
+    printf("Before fork\n");
+    int childPid = fork();
+    if (childPid < 0)
+    {
+        // fork failed
+        // return error
+    }
+    else if (childPid == 0)
+    {
+        printf("In child\n");
+        // The child
+        int retVal = execv(command[0], command);
+        printf("execv %d\n", retVal);
+        exit(-1);
+    }
+    else
+    {
+        printf("In parent, %d\n", childPid);
+        int status;
+
+        // The parent
+        if (waitpid(childPid, &status, 0) != -1)
+        {
+            printf("Status is %d\n", status);
+            if (status == 0)
+            {
+                ret = 0;
+            }
+            else
+            {
+                // return error
+            }
+        }
+        else
+        {
+            // waitpid failed
+            // return error
+        }
+    }
 
     va_end(args);
 
-    return true;
+    return ret == 0;
 }
 
 /**
@@ -71,6 +115,7 @@ bool do_exec(int count, ...)
 */
 bool do_exec_redirect(const char *outputfile, int count, ...)
 {
+    int ret = -1;
     va_list args;
     va_start(args, count);
     char * command[count+1];
@@ -92,8 +137,57 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
+    int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+    if (fd == -1)
+    {
+        // Error, open failed
+    }
+    else
+    {
+        // File opened
+        int kidpid = fork();
+        if (kidpid < 0)
+        {
+            // Error, fork failed
+        }
+        else if (kidpid == 0)
+        {
+            // Child
+            if (dup2(fd, 1) < 0)
+            {
+                // Error, dup2 failed
+            }
+            else
+            {
+                execvp(command[0], command);
+            }
+            exit(-1);
+        }
+        else
+        {
+            // Parent
+            int status;
+            if (waitpid(kidpid, &status, 0) != 0)
+            {
+                if (status == 0)
+                {
+                    ret = 0;
+                }
+                else
+                {
+                    // return error
+                }
+            }
+            else
+            {
+                // waitpid failed
+                // return error
+            }
+        }
+        close(fd);
+    }
 
     va_end(args);
 
-    return true;
+    return ret == 0;
 }
