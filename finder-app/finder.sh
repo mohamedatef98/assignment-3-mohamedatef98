@@ -1,11 +1,18 @@
-#!/bin/bash
-if [ $# -eq 2 ]; then
+#!/bin/sh
+# Check if exactly 2 arguments are provided
+if [ "$#" -eq 2 ]; then
     filesdir=$1
     searchstr=$2
 
+    # Check if the path exists and is a directory
     if [ -d "$filesdir" ]; then
-        num_matches=$(grep $searchstr $filesdir -r | wc -l)
-        num_files=$(grep $searchstr $filesdir -c -r | wc -l)
+        # Calculate matches and files using POSIX-compliant grep
+        # Using -r is standard in most modern grep versions
+        num_matches=$(grep -r "$searchstr" "$filesdir" | wc -l)
+        
+        # We filter out lines that don't have matches (count > 0) to get the file count
+        num_files=$(grep -r -c "$searchstr" "$filesdir" | grep -v ":0$" | wc -l)
+        
         echo "The number of files are $num_files and the number of matching lines are $num_matches"
     else
         echo "$filesdir isn't a directory"
